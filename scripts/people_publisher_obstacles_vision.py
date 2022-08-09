@@ -12,7 +12,8 @@ from obstacles import adapt_parameters
 
 from human_awareness_msgs.msg import PersonTracker, TrackedPersonsList
 
-import tf
+import tf as convert
+import tf2_ros as tf
 import math
 import copy
 import actionlib
@@ -20,7 +21,7 @@ import numpy as np
 
 import matlab.engine
 eng = matlab.engine.start_matlab()
-eng.cd(r'/home/flash/catkin_ws/src/adaptive_social_layers/scripts', nargout=0)
+eng.cd(r'/home/ricarte/catkin_ws/src/adaptive_social_layers/scripts', nargout=0)
 
 STRIDE = 65 # in cm
 MDL = 8000

@@ -11,6 +11,36 @@ using costmap_2d::NO_INFORMATION;
 using costmap_2d::LETHAL_OBSTACLE;
 using costmap_2d::FREE_SPACE;
 
+double gaussianPerson(double x, double y, double x0, double y0, double A, double varx, double vary, double skew){
+    double dx = x-x0, dy = y-y0;
+    double h = sqrt(dx*dx+dy*dy);
+    double haux = sqrt(0.45*0.45);
+    double angle = atan2(dy,dx);
+    double angleaux = atan2(1,0);
+    double mx = cos(angle-skew) * h;
+    double my = sin(angle-skew) * h;
+    double mxaux = cos(angleaux) * haux;
+    double myaux = sin(angleaux) * haux;
+    double f1 = pow(mx, 2.0)/(2.0 * varx),
+           f2 = pow(my, 2.0)/(2.0 * vary);
+    double f1aux = pow(mxaux, 2.0)/(2.0 * varx),
+           f2aux = pow(myaux, 2.0)/(2.0 * vary);
+    double Aux = 254/(exp(-(f1aux + f2aux)));
+    double gauss = A * exp(-(f1 + f2));
+    if(gauss > 254)
+    {
+        return 254;
+    }
+    else if (gauss < 0)
+    {
+        return 0;
+    }
+    else
+    {
+        return (int) (gauss + 0.5);
+    }
+}
+
 double gaussian(double x, double y, double x0, double y0, double A, double varx, double vary, double skew){
     double dx = x-x0, dy = y-y0;
     double h = sqrt(dx*dx+dy*dy);
@@ -19,7 +49,19 @@ double gaussian(double x, double y, double x0, double y0, double A, double varx,
     double my = sin(angle-skew) * h;
     double f1 = pow(mx, 2.0)/(2.0 * varx),
            f2 = pow(my, 2.0)/(2.0 * vary);
-    return A * exp(-(f1 + f2));
+    double gauss = A * exp(-(f1 + f2));
+    if(gauss > 254)
+    {
+        return 254;
+    }
+    else if (gauss < 0)
+    {
+        return 0;
+    }
+    else
+    {
+        return (int) (gauss+0.5);
+    }
 }
 
 double get_radius(double cutoff, double A, double var){
@@ -156,17 +198,20 @@ namespace adaptive_social_layers
                     double diff = angles::shortest_angular_distance(angle, ma);
                     double a;
 
+                    
                     // Convert personal space parameters to ros gaussian parameters for a fixed amplitude and cutoff 
-                    double sx = (pow(person.sx, 2) / log(cutoff_/amplitude_))/ (-2);
-                    double sy = (pow(person.sy, 2) / log(cutoff_/amplitude_))/ (-2);
-                    double sx_back = (pow(person.sx_back, 2) / log(cutoff_/amplitude_))/ (-2);
+                    double sx = (pow(person.sx, 2) / (log(cutoff_/amplitude_))/ (-2));
+                    double sy = (pow(person.sy, 2) / (log(cutoff_/amplitude_))/ (-2));
+                    double sx_back = (pow(person.sx_back, 2) / (log(cutoff_/amplitude_))/ (-2));
+                    double sy_right = (pow(person.sy_right, 2) / (log(cutoff_/amplitude_))/ (-2));
+
 
                     if(person.ospace){
                         a = gaussian(x,y,cx,cy,amplitude_,sx,sy,person.orientation);
                     }
 
                     else {
-                        if (distance(x,y,cx,cy) <= HUMAN_Y/2 ){
+                        /* if (distance(x,y,cx,cy) <= HUMAN_Y/2 ){
                             double cost = costmap_2d::LETHAL_OBSTACLE;
                             costmap->setCost(i+dx, j+dy, cost);
                             a = costmap_2d::LETHAL_OBSTACLE;
@@ -179,6 +224,22 @@ namespace adaptive_social_layers
                             else
                                 a = gaussian(x,y,cx,cy,amplitude_, sx_back, sy,person.orientation);
             
+                        } */
+                        
+                        if(fabs(diff)<M_PI/2)
+                        {
+                            //right
+                            if (diff < 0)
+                                a = gaussianPerson(x,y,cx,cy,amplitude_, sx, sy_right,person.orientation);
+                            else 
+                                a = gaussianPerson(x,y,cx,cy,amplitude_, sx, sy,person.orientation);
+                        }
+                        else
+                        {
+                            if (diff < 0)
+                                a = gaussianPerson(x,y,cx,cy,amplitude_, sx_back, sy_right,person.orientation);
+                            else
+                                a = gaussianPerson(x,y,cx,cy,amplitude_, sx_back, sy,person.orientation);
                         }
     
                     }

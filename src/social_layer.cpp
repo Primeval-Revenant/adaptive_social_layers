@@ -57,6 +57,7 @@ namespace adaptive_social_layers
               tpt.sx = person.sx;
 	            tpt.sx_back = person.sx_back;
               tpt.sy = person.sy;
+              tpt.sy_right = person.sy_right;
               tpt.ospace = person.ospace;
               
               transformed_people_.push_back(tpt);

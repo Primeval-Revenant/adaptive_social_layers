@@ -5,6 +5,7 @@
 #include <costmap_2d/layered_costmap.h>
 #include <group_msgs/People.h>
 #include <boost/thread.hpp>
+#include <tf/transform_listener.h>
 
 
 

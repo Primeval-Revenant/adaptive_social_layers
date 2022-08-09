@@ -18,7 +18,7 @@ import actionlib
 
 import matlab.engine
 eng = matlab.engine.start_matlab()
-eng.cd(r'/home/flash/catkin_ws/src/adaptive_social_layers/scripts', nargout=0)
+eng.cd(r'/home/ricarte/catkin_ws/src/adaptive_social_layers/scripts', nargout=0)
 
 
 STRIDE = 65 # in cm
@@ -96,7 +96,7 @@ class PeoplePublisher():
 
         while not rospy.is_shutdown():
             try:
-                (trans,rot) = listener.lookupTransform('/map', '/base_footprint', rospy.Time(0))
+                (trans,rot) = listener.lookupTransform('/odom', '/base_footprint', rospy.Time(0))
                 break
             except (tf.LookupException, tf.ConnectivityException, tf.ExtrapolationException):
                 continue
