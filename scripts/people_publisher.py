@@ -14,15 +14,16 @@ from algorithm import SpaceModeling
 import copy
 from visualization_msgs.msg import Marker
 import numpy as np
+from clustering_algorithm import hierarchical_clustering
 
 import actionlib
 
-import matlab.engine
-eng = matlab.engine.start_matlab()
-eng.cd(r'/home/ricarte/catkin_ws/src/adaptive_social_layers/scripts', nargout=0)
+# import matlab.engine
+# eng = matlab.engine.start_matlab()
+# eng.cd(r'/home/ricarte/catkin_ws/src/adaptive_social_layers/scripts', nargout=0)
 
 
-STRIDE = 100 # in cm
+STRIDE = 65 # in cm
 MDL = 8000
 
 # Relation between personal frontal space and back space
@@ -159,7 +160,8 @@ class PeoplePublisher():
 
             # Run GCFF gcff.m Matlab function     
             if persons:
-                groups = eng.gcff(MDL,STRIDE, matlab.double(persons))
+                #groups = eng.gcff(MDL,STRIDE, matlab.double(persons))
+                groups = hierarchical_clustering(persons)
     
             if groups:
                 app = SpaceModeling(groups) # Space modeling works in cm
@@ -188,7 +190,6 @@ class PeoplePublisher():
                     center = calc_o_space(group)
                     group = np.asarray(group, dtype=np.longdouble).tolist()
                     group.sort(key=lambda c: math.atan2(c[0]-center[0], c[1]-center[1]))
-                    #print(group)
 
                     ############## FIXED
                     #sx = 0.9
@@ -226,11 +227,6 @@ class PeoplePublisher():
                             dist2 = euclidean_distance(group[i][0] / 100,group[i][1]/100,group[i-1][0]/100,group[i-1][1]/100)
                         else:
                             dist2 = euclidean_distance(group[i][0] / 100,group[i][1]/100,group[len(group)-1][0]/100,group[len(group)-1][1]/100)
-
-                        # print('Another')
-                        # print(dist1)
-                        # print(dist2)
-                        # print(sy)
 
                         if dist1 > 1.3 and (len(group) != 2 or angle_dif >= 0):
 
