@@ -79,9 +79,6 @@ def landmark_detection(persons):
             elif count == 0:
                 break
 
-        print(clusters)
-    print(landmarks)
-
     return landmarks
 
 def hierarchical_clustering(persons):
@@ -107,7 +104,6 @@ def hierarchical_clustering(persons):
 
     clusters = fcluster(link_matrix, 3, criterion='distance')
 
-
     for i in range(1, n_persons+1):
         for j in range(1, n_persons+1):
             if clusters[j-1] == i:
@@ -117,8 +113,5 @@ def hierarchical_clustering(persons):
             group = []
         else:
             break
-
-    #print(groups)
-
 
     return groups
