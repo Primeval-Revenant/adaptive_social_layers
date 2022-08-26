@@ -5,7 +5,7 @@
 import rospy
 from group_msgs.msg import People, Person, Groups
 from human_awareness_msgs.msg import PersonTracker, TrackedPersonsList
-from geometry_msgs.msg import Pose, PoseArray, PointStamped
+from geometry_msgs.msg import Pose, PoseArray
 import tf as convert
 import tf2_ros as tf
 import tf_conversions as tfc
@@ -72,13 +72,10 @@ class PeoplePublisher():
         
         #rospy.Subscriber("/faces",PoseArray,self.callback,queue_size=1)
         rospy.Subscriber("/human_trackers",TrackedPersonsList,self.callback,queue_size=1)
-        rospy.Subscriber("/approach_target",PointStamped,self.callbackapproach,queue_size=1)
         self.loop_rate = rospy.Rate(rospy.get_param('~loop_rate', 10.0))
         self.pose_received = False
-        self.target_received = False
 
         self.data = None
-        self.approach_target = None
         self.pub = rospy.Publisher('/people', People, queue_size=1)
         self.pubg = rospy.Publisher('/groups', Groups, queue_size=1)
 
@@ -90,13 +87,6 @@ class PeoplePublisher():
         
         self.data = data
         self.pose_received = True
-
-    def callbackapproach(self,data):
-        """
-        """
-        
-        self.approach_target = data
-        self.target_received = True
         
 
     def publish(self):
@@ -177,6 +167,8 @@ class PeoplePublisher():
                 app = SpaceModeling(groups) # Space modeling works in cm
                 pparams,gparams = app.solve()
 
+        
+
                 p = People()
                 p.header.frame_id = "/map"
                 p.header.stamp = rospy.Time.now()
@@ -184,19 +176,6 @@ class PeoplePublisher():
                 g = Groups()
                 g.header.frame_id = "/map"
                 g.header.stamp = rospy.Time.now()
-
-                centers = []
-
-                min_dist = 1000
-                min_idx = -1
-
-                for idx,group in enumerate(groups):
-                    centers.append(calc_o_space(group))
-                    if self.approach_target:
-                        aux_dist = euclidean_distance(self.approach_target.point.x, self.approach_target.point.y, centers[idx][0]/100, centers[idx][1]/100)
-                        if aux_dist < min_dist:
-                            min_dist = aux_dist
-                            min_idx = idx
                 
                 for idx,group in enumerate(groups):
                     aux_p = People()
@@ -208,7 +187,7 @@ class PeoplePublisher():
                     gvarx = float(gparams[idx][0]) / 100  # cm to m
                     gvary = float(gparams[idx][1]) / 100  # cm to m
 
-                    center = centers[idx]
+                    center = calc_o_space(group)
                     group = np.asarray(group, dtype=np.longdouble).tolist()
                     group.sort(key=lambda c: math.atan2(c[0]-center[0], c[1]-center[1]))
 
@@ -222,54 +201,47 @@ class PeoplePublisher():
                         p1.position.y = group[i][1] / 100 # cm to m
                         p1.orientation = group[i][2]
                         
-                        if (len(group) != 1 or min_idx != idx):
-                            p1.sx = sx 
-                        else:
-                            p1.sx = min(0.45,sx)
-
-
-
+                        p1.sx = sx 
 
                         dist1 = 0
                         dist2 = 0
 
                         angle_dif = 0
 
-                        if min_idx == idx:
-                            if len(group) == 2:
-                                angle_dif = group[0][2] - group [1][2]
-                                if angle_dif > math.pi:
-                                    angle_dif -= 2*math.pi
-                                elif angle_dif <= -math.pi:
-                                    angle_dif += 2*math.pi
+                        if len(group) == 2:
+                            angle_dif = group[0][2] - group [1][2]
+                            if angle_dif > math.pi:
+                                angle_dif -= 2*math.pi
+                            elif angle_dif <= -math.pi:
+                                angle_dif += 2*math.pi
 
-                                if i == 1:
-                                    angle_dif = -angle_dif
+                            if i == 1:
+                                angle_dif = -angle_dif
 
-                            if i != len(group)-1:
-                                dist1 = euclidean_distance(group[i][0] / 100,group[i][1]/100,group[i+1][0]/100,group[i+1][1]/100)
-                            else:
-                                dist1 = euclidean_distance(group[i][0] / 100,group[i][1]/100,group[0][0]/100,group[0][1]/100)
+                        if i != len(group)-1:
+                            dist1 = euclidean_distance(group[i][0] / 100,group[i][1]/100,group[i+1][0]/100,group[i+1][1]/100)
+                        else:
+                            dist1 = euclidean_distance(group[i][0] / 100,group[i][1]/100,group[0][0]/100,group[0][1]/100)
 
-                            if i != 0:
-                                dist2 = euclidean_distance(group[i][0] / 100,group[i][1]/100,group[i-1][0]/100,group[i-1][1]/100)
-                            else:
-                                dist2 = euclidean_distance(group[i][0] / 100,group[i][1]/100,group[len(group)-1][0]/100,group[len(group)-1][1]/100)
+                        if i != 0:
+                            dist2 = euclidean_distance(group[i][0] / 100,group[i][1]/100,group[i-1][0]/100,group[i-1][1]/100)
+                        else:
+                            dist2 = euclidean_distance(group[i][0] / 100,group[i][1]/100,group[len(group)-1][0]/100,group[len(group)-1][1]/100)
 
-                        if min_idx == idx and dist1 > 1.3 and (len(group) != 2 or angle_dif >= 0):
+                        if dist1 > 1.3 and (len(group) != 2 or angle_dif >= 0):
 
                             p1.sy = min((dist1-0.8)/2,sy)
                         
                         else:
                             p1.sy = sy
 
-                        if min_idx == idx and dist2 > 1.3 and (len(group) != 2 or angle_dif < 0):
+                        if dist2 > 1.3 and (len(group) != 2 or angle_dif < 0):
                             p1.sy_right = min((dist2-0.8)/2,sy)
 
                         else:
                             p1.sy_right = sy
 
-                        p1.sx_back = sx / BACK_FACTOR
+                        p1.sx_back = p1.sx / BACK_FACTOR
                         p1.ospace = False
                         p.people.append(p1)
 
@@ -290,8 +262,6 @@ class PeoplePublisher():
 
                         aux_p.people.append(p1)
 
-
-                    aux_p.id = str(idx)
                     g.groups.append(aux_p)
 
                 self.pub.publish(p)
