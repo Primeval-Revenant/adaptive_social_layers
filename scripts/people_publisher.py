@@ -163,7 +163,7 @@ class PeoplePublisher():
                     pose_yaw = yaw + t_yaw
 
 
-                    pose_person = (pose_x  * 100, pose_y * 100,  pose_yaw)
+                    pose_person = (pose_x  * 100, pose_y * 100,  pose_yaw, poseinfo.velocity.linear.x,poseinfo.velocity.linear.y)
                     persons.append(pose_person)
 
                 self.pubd.publish(ap_points) # Pose Array of individuals publisher
@@ -212,6 +212,10 @@ class PeoplePublisher():
                     group = np.asarray(group, dtype=np.longdouble).tolist()
                     group.sort(key=lambda c: math.atan2(c[0]-center[0], c[1]-center[1]))
 
+                    sum_x_vel = 0
+                    sum_y_vel = 0
+                    sum_vel = 0
+
                     ############## FIXED
                     #sx = 0.9
                     #sy = 0.9
@@ -221,6 +225,10 @@ class PeoplePublisher():
                         p1.position.x = group[i][0] / 100 # cm to m
                         p1.position.y = group[i][1] / 100 # cm to m
                         p1.orientation = group[i][2]
+                        sum_x_vel += group[i][3]
+                        sum_y_vel += group[i][4]
+                        sum_vel += math.sqrt(group[i][3]**2+group[i][4]**2)
+
                         
                         if (len(group) != 1 or min_idx != idx):
                             p1.sx = sx 
@@ -282,8 +290,9 @@ class PeoplePublisher():
                         p1 = Person()
                         p1.position.x = center[0] / 100 # cm to m
                         p1.position.y = center[1] / 100 # cm to m
-                        p1.orientation = math.pi
-                        p1.sx = gvarx
+                        p1.orientation = math.atan2(sum_y_vel,sum_x_vel)
+                        p1.sx = gvarx + sum_vel/len(group)
+                        p1.sx_back = gvarx
                         p1.sy = gvary
                         p1.ospace = True
                         p.people.append(p1)
