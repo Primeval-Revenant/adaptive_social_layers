@@ -44,14 +44,14 @@ namespace adaptive_social_layers
               tpt.position.y = opt.point.y;
               tpt.position.z = opt.point.z;
 
-              pt.point.x += person.velocity.x;
-              pt.point.y += person.velocity.y;
-              pt.point.z += person.velocity.z;
-              tf_.transformPoint(global_frame, pt, opt);
+              // pt.point.x += person.velocity.x;
+              // pt.point.y += person.velocity.y;
+              // pt.point.z += person.velocity.z;
+              // tf_.transformPoint(global_frame, pt, opt);
               
-              tpt.velocity.x = opt.point.x - tpt.position.x;
-              tpt.velocity.y = opt.point.y - tpt.position.y;
-              tpt.velocity.z = opt.point.z - tpt.position.z;
+              // tpt.velocity.x = opt.point.x - tpt.position.x;
+              // tpt.velocity.y = opt.point.y - tpt.position.y;
+              // tpt.velocity.z = opt.point.z - tpt.position.z;
 
               tpt.orientation = person.orientation;
               tpt.sx = person.sx;

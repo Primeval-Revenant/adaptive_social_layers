@@ -225,18 +225,17 @@ class PeoplePublisher():
                         p1.position.x = group[i][0] / 100 # cm to m
                         p1.position.y = group[i][1] / 100 # cm to m
                         p1.orientation = group[i][2]
+                        p1.velocity.linear.x = group[i][3]
+                        p1.velocity.linear.y = group[i][4]
                         sum_x_vel += group[i][3]
                         sum_y_vel += group[i][4]
                         sum_vel += math.sqrt(group[i][3]**2+group[i][4]**2)
 
                         
                         if (len(group) != 1 or min_idx != idx):
-                            p1.sx = sx 
+                            p1.sx = sx*(1+0.8*math.sqrt(group[i][3]**2+group[i][4]**2)) 
                         else:
-                            p1.sx = min(0.45,sx)
-
-
-
+                            p1.sx = min(0.45*(1+0.8*math.sqrt(group[i][3]**2+group[i][4]**2)),sx*(1+0.8**math.sqrt(group[i][3]**2+group[i][4]**2)))
 
                         dist1 = 0
                         dist2 = 0
@@ -291,7 +290,9 @@ class PeoplePublisher():
                         p1.position.x = center[0] / 100 # cm to m
                         p1.position.y = center[1] / 100 # cm to m
                         p1.orientation = math.atan2(sum_y_vel,sum_x_vel)
-                        p1.sx = gvarx + sum_vel/len(group)
+                        p1.velocity.linear.x = math.cos(p1.orientation)*(sum_vel/len(group))
+                        p1.velocity.linear.y = math.sin(p1.orientation)*(sum_vel/len(group))
+                        p1.sx = gvarx*(1 + 0.8*(sum_vel/len(group)))
                         p1.sx_back = gvarx
                         p1.sy = gvary
                         p1.ospace = True
