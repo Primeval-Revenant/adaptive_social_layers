@@ -27,7 +27,16 @@ HUMAN_Y = 45
 HUMAN_X = 20
 
 #Intersections Treshold
-TRESHOLD = 100 #Occupied occupancy grid treshold
+THRESHOLD = 127 #Occupied occupancy grid threshold
+
+costconvert = []
+costconvert.append(0)
+for i in range(1,99):
+    costconvert.append(round((((i-1)*251)/97)+1))
+
+costconvert.append(253)
+costconvert.append(254)
+costconvert.append(255)
 
 def calc_o_space(persons):
     """Calculates the o-space center of the group given group members pose"""
@@ -59,12 +68,12 @@ def find_collision(x0, y0, x1, y1, costmap, width):
     for point in bresenham_points:
         index = point[1] * width + point[0]
         
-        if int(costmap[index]) == TRESHOLD:
+        if int(costmap[index]) == 100:
             # m = np.array(costmap)
             # c = m.reshape(width,width)
             # plt.imshow(c)
             # plt.show()
-            rospy.loginfo("Intersection")
+            #rospy.loginfo("Intersection")
             return point[0], point[1]
         # else:
         #     costmap[index] = 255

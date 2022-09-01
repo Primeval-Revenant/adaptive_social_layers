@@ -27,9 +27,9 @@ double gaussianPerson(double x, double y, double x0, double y0, double A, double
            f2aux = pow(myaux, 2.0)/(2.0 * vary);
     double Aux = 254/(exp(-(f1aux + f2aux)));
     double gauss = A * exp(-(f1 + f2));
-    if(gauss > 254)
+    if(gauss > 253)
     {
-        return 254;
+        return 253;
     }
     else if (gauss < 0)
     {
@@ -50,9 +50,9 @@ double gaussian(double x, double y, double x0, double y0, double A, double varx,
     double f1 = pow(mx, 2.0)/(2.0 * varx),
            f2 = pow(my, 2.0)/(2.0 * vary);
     double gauss = A * exp(-(f1 + f2));
-    if(gauss > 254)
+    if(gauss > 253)
     {
-        return 254;
+        return 253;
     }
     else if (gauss < 0)
     {

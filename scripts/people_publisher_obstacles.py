@@ -6,20 +6,25 @@ import rospy
 from nav_msgs.msg import OccupancyGrid
 from map_msgs.msg import OccupancyGridUpdate
 from group_msgs.msg import People, Person, Groups
-from geometry_msgs.msg import Pose, PoseArray
-from algorithm import SpaceModeling
-from obstacles import adapt_parameters
+from human_awareness_msgs.msg import PersonTracker, TrackedPersonsList
+from geometry_msgs.msg import Pose, PoseArray, PointStamped
 import tf as convert
 import tf2_ros as tf
-
+import tf_conversions as tfc
 import math
+from algorithm import SpaceModeling
 import copy
-import actionlib
+from visualization_msgs.msg import Marker
 import numpy as np
+from clustering_algorithm import hierarchical_clustering
+from obstacles import adapt_parameters
 
-import matlab.engine
-eng = matlab.engine.start_matlab()
-eng.cd(r'/home/ricarte/catkin_ws/src/adaptive_social_layers/scripts', nargout=0)
+import actionlib
+
+# import matlab.engine
+# eng = matlab.engine.start_matlab()
+# eng.cd(r'/home/ricarte/catkin_ws/src/adaptive_social_layers/scripts', nargout=0)
+
 
 STRIDE = 65 # in cm
 MDL = 8000
@@ -44,7 +49,14 @@ def calc_o_space(persons):
 
     center = [c_x / g_size, c_y / g_size]
 
+
     return center
+
+def euclidean_distance(x1, y1, x2, y2):
+    """Euclidean distance between two points in 2D."""
+    dist = math.sqrt((x2 - x1) ** 2 + (y2 - y1) ** 2)
+    return dist
+
 
 def rotate(px, py, angle):
     """
@@ -56,11 +68,6 @@ def rotate(px, py, angle):
 
     return qx, qy
 
-def get_index(x, y, width):
-    """ """
-    
-    return (y * width) + x
-
 class PeoplePublisher():
     """
     """
@@ -69,19 +76,21 @@ class PeoplePublisher():
         """
         rospy.init_node('PeoplePublisher', anonymous=True)
         
-        rospy.Subscriber("/faces",PoseArray,self.callback,queue_size=1)
-                # https://answers.ros.org/question/207620/global-map-update/
-        # We need to subscribe both costmap and costmap update topic
-        rospy.Subscriber("/map",OccupancyGrid , self.callbackCm, queue_size=1)
+        #rospy.Subscriber("/faces",PoseArray,self.callback,queue_size=1)
+        rospy.Subscriber("/human_trackers",TrackedPersonsList,self.callback,queue_size=1)
+        rospy.Subscriber("/approach_target",PointStamped,self.callbackapproach,queue_size=1)
         self.loop_rate = rospy.Rate(rospy.get_param('~loop_rate', 10.0))
-
-        self.map_received = False
         self.pose_received = False
+        self.target_received = False
+        self.map_received = False
 
         self.data = None
-        self.pub = rospy.Publisher('/people', People, queue_size=10)
-        self.pubg = rospy.Publisher('/groups', Groups, queue_size=10)
+        self.map = None
+        self.approach_target = None
+        self.pub = rospy.Publisher('/people', People, queue_size=1)
+        self.pubg = rospy.Publisher('/groups', Groups, queue_size=1)
 
+        self.pubd = rospy.Publisher('/people_detections', PoseArray, queue_size=1)
 
     def callback(self,data):
         """
@@ -89,53 +98,83 @@ class PeoplePublisher():
         
         self.data = data
         self.pose_received = True
-    
 
     def callbackCm(self, data):
         """ Costmap Callback. """
 
         self.map = data
-        self.map_grid = list(data.data)
+        #self.map_grid = list(data.data)
         self.map_received = True
-            
-    def publish(self):
+
+    def callbackapproach(self,data):
         """
         """
         
+        self.approach_target = data
+        self.target_received = True
+        
+
+    def publish(self):
+        """
+        """
 
         tfBuffer = tf.Buffer()
 
         listener = tf.TransformListener(tfBuffer)
+
         rate = rospy.Rate(10.0)
         while not rospy.is_shutdown():
+
+
             try:
-                transf = tfBuffer.lookup_transform('map', 'base_footprint', rospy.Time())
+
+                transf = tfBuffer.lookup_transform('map', 'odom', rospy.Time())
             except (tf.LookupException, tf.ConnectivityException, tf.ExtrapolationException):
                 rate.sleep()
                 continue
+
+            map_publisher = rospy.Subscriber("/move_base/global_costmap/costmap",OccupancyGrid , self.callbackCm, queue_size=1)
 
             data = self.data
             groups = []
             group = []
 
             persons = []
-
             tx = transf.transform.translation.x
             ty = transf.transform.translation.y
             quatern = (transf.transform.rotation.x, transf.transform.rotation.y, transf.transform.rotation.z, transf.transform.rotation.w)
             (_, _, t_yaw) = convert.transformations.euler_from_quaternion(quatern)
+            
 
-            if not data.poses:
+            ap_points = PoseArray()
+            ap_points.header.frame_id = "/odom"
+            ap_points.header.stamp = rospy.Time.now()
+
+            if (data is not None) and (not data.personList):
                 groups = []
-            else:
-                for pose in data.poses:
+            elif data is not None:
+                for poseinfo in data.personList:
 
                     #rospy.loginfo("Person Detected")
-                    
-                    quartenion = [pose.orientation.x, pose.orientation.y, pose.orientation.z, pose.orientation.w]
-                    (_, _, yaw) = convert.transformations.euler_from_quaternion(quartenion)
 
+                    pose = poseinfo.body_pose
+
+                    quaternion = [pose.orientation.x, pose.orientation.y, pose.orientation.z, pose.orientation.w]
+                    ###################### Pose Array Marker of the individuals
+                    ap_pose = Pose()
+                    ap_pose.position.x = pose.position.x
+                    ap_pose.position.y = pose.position.y
+                    ap_pose.position.z = 0.1
+
+                    ap_pose.orientation.x = quaternion[0]
+                    ap_pose.orientation.y = quaternion[1]
+                    ap_pose.orientation.z = quaternion[2]
+                    ap_pose.orientation.w = quaternion[3]
                     
+                    ap_points.poses.append(ap_pose)
+                    #########################
+                    (_, _, yaw) = convert.transformations.euler_from_quaternion(quaternion)
+
                     # Pose transformation from base footprint frame to map frame
                     (px, py) = rotate(pose.position.x, pose.position.y, t_yaw)
                     pose_x = px + tx
@@ -143,28 +182,36 @@ class PeoplePublisher():
                     pose_yaw = yaw + t_yaw
 
 
-                    pose_person = (pose_x  * 100, pose_y * 100,  pose_yaw)
+                    pose_person = (pose_x  * 100, pose_y * 100,  pose_yaw, poseinfo.velocity.linear.x,poseinfo.velocity.linear.y)
                     persons.append(pose_person)
 
-            # Run GCFF gcff.m Matlab function      
+                self.pubd.publish(ap_points) # Pose Array of individuals publisher
+
+            # Run GCFF gcff.m Matlab function     
             if persons:
-                groups = eng.gcff(MDL,STRIDE, matlab.double(persons))
+                #groups = eng.gcff(MDL,STRIDE, matlab.double(persons))
+                groups = hierarchical_clustering(persons)
     
             if groups:
                 app = SpaceModeling(groups) # Space modeling works in cm
                 pparams,gparams = app.solve()
 
-                ####
-                # Obstacles works in cm -> Convert to meters
-                ox = self.map.info.origin.position.x * 100
-                oy = self.map.info.origin.position.y * 100
-                origin = [ox, oy]
-                resolution = self.map.info.resolution * 100
-                width = self.map.info.width 
-                height = self.map.info.height 
-                map = self.map.data
 
-                pparams_adapt, gparams_adapt = adapt_parameters(groups, pparams, gparams, resolution, map, origin, width, ROBOT_DIM)
+                if self.map:
+
+                    ox = self.map.info.origin.position.x * 100
+                    oy = self.map.info.origin.position.y * 100
+                    origin = [ox, oy]
+                    resolution = self.map.info.resolution * 100
+                    width = self.map.info.width 
+                    height = self.map.info.height 
+                    costmap = self.map.data
+
+                    pparams_adapt, gparams_adapt = adapt_parameters(groups, pparams, gparams, resolution, costmap, origin, width, ROBOT_DIM)
+                else:
+                    pparams_adapt = None
+                    gparams_adapt = None
+                
                 
 
                 p = People()
@@ -174,89 +221,156 @@ class PeoplePublisher():
                 g = Groups()
                 g.header.frame_id = "/map"
                 g.header.stamp = rospy.Time.now()
+
+                centers = []
+
+                min_dist = 1000
+                min_idx = -1
+
+                for idx,group in enumerate(groups):
+                    centers.append(calc_o_space(group))
+                    if self.approach_target:
+                        aux_dist = euclidean_distance(self.approach_target.point.x, self.approach_target.point.y, centers[idx][0]/100, centers[idx][1]/100)
+                        if aux_dist < min_dist:
+                            min_dist = aux_dist
+                            min_idx = idx
                 
                 for idx,group in enumerate(groups):
                     aux_p = People()
                     aux_p.header.frame_id = "/map"
                     aux_p.header.stamp = rospy.Time.now()
 
+                    if not pparams_adapt:
+                        sx = (float(pparams[idx][0])/100) # cm to m
+                        sy = float(pparams[idx][1])/100 # cm to m
+
+                    if gparams_adapt:
+                        gvarx = float(gparams_adapt[idx][0]) / 100.0  # cm to m
+                        gvary = float(gparams_adapt[idx][1]) / 100.0  # cm to m
+                    else:
+                        gvarx = float(gparams[idx][0]) / 100  # cm to m
+                        gvary = float(gparams[idx][1]) / 100  # cm to m
+
+                    center = centers[idx]
+                    group = np.asarray(group, dtype=np.longdouble).tolist()
                     
-                    gvarx = float(gparams_adapt[idx][0]) / 100.0  # cm to m
-                    gvary = float(gparams_adapt[idx][1]) / 100.0  # cm to m
-                    
-        
-                    
+                    #group.sort(key=lambda c: math.atan2(c[0]-center[0], c[1]-center[1]))
+                    orig_pos, group = zip(*sorted(enumerate(group), key=lambda c: math.atan2(c[1][0]-center[0], c[1][1]-center[1])))
+
+                    sum_x_vel = 0
+                    sum_y_vel = 0
+                    sum_vel = 0
+
                     ############## FIXED
-                    # sx = 0.9
-                    # sy = 0.9
+                    #sx = 0.9
+                    #sy = 0.9
                     #########################
-                    for pidx, person in enumerate(group):
-
+                    for i in range(len(group)):
                         p1 = Person()
-                        p1.position.x = person[0] / 100.0 # cm to m
-                        p1.position.y = person[1] / 100.0 # cm to m
-                        p1.orientation = person[2]
+                        p1.position.x = group[i][0] / 100 # cm to m
+                        p1.position.y = group[i][1] / 100 # cm to m
+                        p1.orientation = group[i][2]
+                        p1.velocity.linear.x = group[i][3]
+                        p1.velocity.linear.y = group[i][4]
+                        sum_x_vel += group[i][3]
+                        sum_y_vel += group[i][4]
+                        sum_vel += math.sqrt(group[i][3]**2+group[i][4]**2)
 
-                        sx = pparams_adapt[idx][pidx]["sx"]/ 100.0
-                        sy =  pparams_adapt[idx][pidx]["sy"] / 100.0
+                        if pparams_adapt:
+                            sx = pparams_adapt[idx][orig_pos[i]]["sx"]/ 100.0
+                            sy =  pparams_adapt[idx][orig_pos[i]]["sy"] / 100.0
 
-                        sx_back = pparams_adapt[idx][pidx]["sx_back"] / 100.0
+                            sx_back = pparams_adapt[idx][orig_pos[i]]["sx_back"] / 100.0
+
                         
-                        p1.sx = sx 
-                        p1.sy = sy 
-                        p1.sx_back = sx_back 
+                        if (len(group) != 1 or min_idx != idx):
+                            p1.sx = sx*(1+0.8*math.sqrt(group[i][3]**2+group[i][4]**2)) 
+                        else:
+                            p1.sx = min(0.45*(1+0.8*math.sqrt(group[i][3]**2+group[i][4]**2)),sx*(1+0.8**math.sqrt(group[i][3]**2+group[i][4]**2)))
+
+                        dist1 = 0
+                        dist2 = 0
+
+                        angle_dif = 0
+
+                        if min_idx == idx:
+                            if len(group) == 2:
+                                angle_dif = group[0][2] - group [1][2]
+                                if angle_dif > math.pi:
+                                    angle_dif -= 2*math.pi
+                                elif angle_dif <= -math.pi:
+                                    angle_dif += 2*math.pi
+
+                                if i == 1:
+                                    angle_dif = -angle_dif
+
+                            if i != len(group)-1:
+                                dist1 = euclidean_distance(group[i][0] / 100,group[i][1]/100,group[i+1][0]/100,group[i+1][1]/100)
+                            else:
+                                dist1 = euclidean_distance(group[i][0] / 100,group[i][1]/100,group[0][0]/100,group[0][1]/100)
+
+                            if i != 0:
+                                dist2 = euclidean_distance(group[i][0] / 100,group[i][1]/100,group[i-1][0]/100,group[i-1][1]/100)
+                            else:
+                                dist2 = euclidean_distance(group[i][0] / 100,group[i][1]/100,group[len(group)-1][0]/100,group[len(group)-1][1]/100)
+
+                        if min_idx == idx and dist1 > 1.3 and (len(group) != 2 or angle_dif >= 0):
+
+                            p1.sy = min((dist1-0.8)/2,sy)
                         
+                        else:
+                            p1.sy = sy
+
+                        if min_idx == idx and dist2 > 1.3 and (len(group) != 2 or angle_dif < 0):
+                            p1.sy_right = min((dist2-0.8)/2,sy)
+
+                        else:
+                            p1.sy_right = sy
+
+                        p1.sx_back = sx / BACK_FACTOR
                         p1.ospace = False
                         p.people.append(p1)
 
                         
                         aux_p.people.append(p1)
+                  
                     
                     # Only represent o space for  +2 individuals
                     if len(group) > 1:
                         p1 = Person()
-                        center = calc_o_space(group)
-                        p1.position.x = center[0] / 100.0 # cm to m
-                        p1.position.y = center[1] / 100.0 # cm to m
-                        p1.orientation = math.pi
-
-                        
-                        p1.sx = gvarx
+                        p1.position.x = center[0] / 100 # cm to m
+                        p1.position.y = center[1] / 100 # cm to m
+                        p1.orientation = math.atan2(sum_y_vel,sum_x_vel)
+                        p1.velocity.linear.x = math.cos(p1.orientation)*(sum_vel/len(group))
+                        p1.velocity.linear.y = math.sin(p1.orientation)*(sum_vel/len(group))
+                        p1.sx = gvarx*(1 + 0.8*(sum_vel/len(group)))
+                        p1.sx_back = gvarx
                         p1.sy = gvary
-
-                        
                         p1.ospace = True
                         p.people.append(p1)
 
                         aux_p.people.append(p1)
 
+
+                    aux_p.id = str(idx)
                     g.groups.append(aux_p)
 
                 self.pub.publish(p)
                 
                 self.pubg.publish(g)
 
-        else:
-            p = People()
-            p.header.frame_id = "/map"
-            p.header.stamp = rospy.Time.now()
-            self.pub.publish(p)
+            else:
+                p = People()
+                p.header.frame_id = "/map"
+                p.header.stamp = rospy.Time.now()
+                self.pub.publish(p)
 
-            g = Groups()
-            g.header.frame_id = "/map"
-            g.header.stamp = rospy.Time.now()
-            self.pubg.publish(g)
-
-    def run_behavior(self):
-        while not rospy.is_shutdown():
-            if self.pose_received:
-                self.pose_received = False
-
-                if self.map_received:
-                    #self.map_received = False
-
-                    self.publish()
-                    
+                g = Groups()
+                g.header.frame_id = "/map"
+                g.header.stamp = rospy.Time.now()
+                self.pubg.publish(g)
+            rate.sleep()
+            map_publisher.unregister()
 
 if __name__ == '__main__':
     people_publisher = PeoplePublisher()
