@@ -14,22 +14,15 @@ using costmap_2d::FREE_SPACE;
 double gaussianPerson(double x, double y, double x0, double y0, double A, double varx, double vary, double skew){
     double dx = x-x0, dy = y-y0;
     double h = sqrt(dx*dx+dy*dy);
-    double haux = sqrt(0.45*0.45);
     double angle = atan2(dy,dx);
-    double angleaux = atan2(1,0);
     double mx = cos(angle-skew) * h;
     double my = sin(angle-skew) * h;
-    double mxaux = cos(angleaux) * haux;
-    double myaux = sin(angleaux) * haux;
     double f1 = pow(mx, 2.0)/(2.0 * varx),
            f2 = pow(my, 2.0)/(2.0 * vary);
-    double f1aux = pow(mxaux, 2.0)/(2.0 * varx),
-           f2aux = pow(myaux, 2.0)/(2.0 * vary);
-    double Aux = 254/(exp(-(f1aux + f2aux)));
     double gauss = A * exp(-(f1 + f2));
-    if(gauss > 253)
+    if(gauss > 254)
     {
-        return 253;
+        return 254;
     }
     else if (gauss < 0)
     {
@@ -50,9 +43,9 @@ double gaussian(double x, double y, double x0, double y0, double A, double varx,
     double f1 = pow(mx, 2.0)/(2.0 * varx),
            f2 = pow(my, 2.0)/(2.0 * vary);
     double gauss = A * exp(-(f1 + f2));
-    if(gauss > 253)
+    if(gauss > 254)
     {
-        return 253;
+        return 254;
     }
     else if (gauss < 0)
     {
@@ -198,7 +191,6 @@ namespace adaptive_social_layers
                     double diff = angles::shortest_angular_distance(angle, ma);
                     double a;
 
-                    
                     // Convert personal space parameters to ros gaussian parameters for a fixed amplitude and cutoff 
                     double sx = (pow(person.sx, 2) / (log(cutoff_/amplitude_))/ (-2));
                     double sy = (pow(person.sy, 2) / (log(cutoff_/amplitude_))/ (-2));
@@ -214,20 +206,6 @@ namespace adaptive_social_layers
                     }
 
                     else {
-                        /* if (distance(x,y,cx,cy) <= HUMAN_Y/2 ){
-                            double cost = costmap_2d::LETHAL_OBSTACLE;
-                            costmap->setCost(i+dx, j+dy, cost);
-                            a = costmap_2d::LETHAL_OBSTACLE;
-                        } //Mark person body area as lethal 
-
-                        else{ // Compute gaussian value of the cell
-
-                            if(fabs(diff)<M_PI/2)
-                                a = gaussian(x,y,cx,cy,amplitude_, sx, sy,person.orientation);
-                            else
-                                a = gaussian(x,y,cx,cy,amplitude_, sx_back, sy,person.orientation);
-            
-                        } */
                         
                         if(fabs(diff)<M_PI/2)
                         {

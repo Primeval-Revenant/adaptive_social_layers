@@ -124,12 +124,12 @@ def adapt_parameters(groups, pparams, oparams, resolution, costmap, origin, widt
                 if idx == 0 or idx ==2:
                     if dis - oparams[j][0] < robot_dim:  # Check if robot is able to naviagte
                         oparams[j][0] = dis - robot_dim
-                        print("NEW group x " + str(oparams[j][0]))
+                        #print("NEW group x " + str(oparams[j][0]))
 
                 elif idx == 1 or idx == 3:
                     if dis - oparams[j][1] < robot_dim:  # Check if robot is able to naviagte
                         oparams[j][1] = dis - robot_dim
-                        print("NEW group y " + str(oparams[j][1]))
+                        #print("NEW group y " + str(oparams[j][1]))
 
 
 
@@ -175,6 +175,7 @@ def adapt_parameters(groups, pparams, oparams, resolution, costmap, origin, widt
                 g = find_collision(x0, y0, x1, y1, costmap, width)
 
                 if g is not None:
+
                     dx = (g[0] * resolution) + (resolution/2) + ox # in cm 
                     dy = (g[1] * resolution) + (resolution/2) + oy # in cm
     
@@ -190,9 +191,10 @@ def adapt_parameters(groups, pparams, oparams, resolution, costmap, origin, widt
                                     sx = HUMAN_X/2
                             elif dis - robot_dim >= HUMAN_X / 2:
                                 sx = dis - robot_dim
-                                rospy.loginfo("NEW sx " + str(sx))
-                            else:
-                                rospy.loginfo("Impossible to adapt parameter sx")
+                                #rospy.loginfo("NEW sx " + str(sx))
+                            # else:
+                            #     rospy.loginfo("Impossible to adapt parameter sx")
+                                
 
                     elif idx == 1 or idx == 3:
                         if dis - sy < robot_dim:  # Check if robot is able to naviagte
@@ -202,10 +204,10 @@ def adapt_parameters(groups, pparams, oparams, resolution, costmap, origin, widt
                                     sy = HUMAN_Y/2
                             elif dis - robot_dim >= HUMAN_Y / 2:
                                 sy = dis - robot_dim
-                                rospy.loginfo("NEW sy " + str(sy))
+                                #rospy.loginfo("NEW sy " + str(sy))
 
-                            else:
-                                rospy.loginfo("Impossible to adapt parameter sy")
+                            # else:
+                            #     rospy.loginfo("Impossible to adapt parameter sy")
                     elif idx == 2:
 
                         if dis - sx_back < robot_dim:  # Check if robot is able to naviagte
@@ -215,15 +217,17 @@ def adapt_parameters(groups, pparams, oparams, resolution, costmap, origin, widt
                                     sx_back = HUMAN_X/2
                             elif dis - robot_dim >= HUMAN_X / 2:
                                 sx_back = dis - robot_dim
-                                rospy.loginfo("NEW sx_back " + str(sx_back))
-                            else:
-                                rospy.loginfo("Impossible to adapt parameter sx_back")
+                                #rospy.loginfo("NEW sx_back " + str(sx_back))
+                            # else:
+                            #     rospy.loginfo("Impossible to adapt parameter sx_back")
       
             parameters = {"sx": sx, "sy": sy, "sx_back":sx_back}
 
             group_params.append(parameters)
 
         groups_params.append(group_params)
+        group_params = []
+
 
 
     return groups_params, oparams

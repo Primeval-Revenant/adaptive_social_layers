@@ -254,7 +254,6 @@ class PeoplePublisher():
                     center = centers[idx]
                     group = np.asarray(group, dtype=np.longdouble).tolist()
                     
-                    #group.sort(key=lambda c: math.atan2(c[0]-center[0], c[1]-center[1]))
                     orig_pos, group = zip(*sorted(enumerate(group), key=lambda c: math.atan2(c[1][0]-center[0], c[1][1]-center[1])))
 
                     sum_x_vel = 0
@@ -276,13 +275,11 @@ class PeoplePublisher():
                         sum_y_vel += group[i][4]
                         sum_vel += math.sqrt(group[i][3]**2+group[i][4]**2)
 
+
                         if pparams_adapt:
                             sx = pparams_adapt[idx][orig_pos[i]]["sx"]/ 100.0
                             sy =  pparams_adapt[idx][orig_pos[i]]["sy"] / 100.0
-
-                            sx_back = pparams_adapt[idx][orig_pos[i]]["sx_back"] / 100.0
-
-                        
+                         
                         if (len(group) != 1 or min_idx != idx):
                             p1.sx = sx*(1+0.8*math.sqrt(group[i][3]**2+group[i][4]**2)) 
                         else:
@@ -327,11 +324,14 @@ class PeoplePublisher():
                         else:
                             p1.sy_right = sy
 
-                        p1.sx_back = sx / BACK_FACTOR
+                        if pparams_adapt:
+                            p1.sx_back = pparams_adapt[idx][orig_pos[i]]["sx_back"] / 100.0
+                        else:
+                            p1.sx_back = sx / BACK_FACTOR
+
                         p1.ospace = False
                         p.people.append(p1)
 
-                        
                         aux_p.people.append(p1)
                   
                     

@@ -69,8 +69,6 @@ class PeoplePublisher():
         """
         """
         rospy.init_node('PeoplePublisher', anonymous=True)
-        
-        #rospy.Subscriber("/faces",PoseArray,self.callback,queue_size=1)
         rospy.Subscriber("/human_trackers",TrackedPersonsList,self.callback,queue_size=1)
         rospy.Subscriber("/approach_target",PointStamped,self.callbackapproach,queue_size=1)
         self.loop_rate = rospy.Rate(rospy.get_param('~loop_rate', 10.0))
@@ -168,7 +166,8 @@ class PeoplePublisher():
 
                 self.pubd.publish(ap_points) # Pose Array of individuals publisher
 
-            # Run GCFF gcff.m Matlab function     
+            # Run GCFF gcff.m Matlab function - OLD   
+            #Run a clustering algorithm for group detection
             if persons:
                 #groups = eng.gcff(MDL,STRIDE, matlab.double(persons))
                 groups = hierarchical_clustering(persons)
@@ -190,6 +189,7 @@ class PeoplePublisher():
                 min_dist = 1000
                 min_idx = -1
 
+                #Calculate which group is closest to the approach target provided by the approaching algorithm. This allows for continuous tracking of moving groups
                 for idx,group in enumerate(groups):
                     centers.append(calc_o_space(group))
                     if self.approach_target:
@@ -209,9 +209,11 @@ class PeoplePublisher():
                     gvary = float(gparams[idx][1]) / 100  # cm to m
 
                     center = centers[idx]
-                    group = np.asarray(group, dtype=np.longdouble).tolist()
-                    group.sort(key=lambda c: math.atan2(c[0]-center[0], c[1]-center[1]))
 
+                    group = np.asarray(group, dtype=np.longdouble).tolist()
+                    group.sort(key=lambda c: math.atan2(c[0]-center[0], c[1]-center[1])) #Sort group counterclockwise
+
+                    #Variables used to calculate group velocity
                     sum_x_vel = 0
                     sum_y_vel = 0
                     sum_vel = 0
@@ -231,17 +233,18 @@ class PeoplePublisher():
                         sum_y_vel += group[i][4]
                         sum_vel += math.sqrt(group[i][3]**2+group[i][4]**2)
 
-                        
+                        #Check if group or individual and if it is the chosen group to approach
                         if (len(group) != 1 or min_idx != idx):
                             p1.sx = sx*(1+0.8*math.sqrt(group[i][3]**2+group[i][4]**2)) 
                         else:
-                            p1.sx = min(0.45*(1+0.8*math.sqrt(group[i][3]**2+group[i][4]**2)),sx*(1+0.8**math.sqrt(group[i][3]**2+group[i][4]**2)))
+                            p1.sx = min(0.9*(1+0.8*math.sqrt(group[i][3]**2+group[i][4]**2)),sx*(1+0.8**math.sqrt(group[i][3]**2+group[i][4]**2)))
 
                         dist1 = 0
                         dist2 = 0
 
                         angle_dif = 0
 
+                        #Check if it is the chosen group to approach and try to adapt the model if it is
                         if min_idx == idx:
                             if len(group) == 2:
                                 angle_dif = group[0][2] - group [1][2]

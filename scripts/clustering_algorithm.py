@@ -86,6 +86,11 @@ def hierarchical_clustering(persons):
     n_persons = len(persons)
     group = []
     groups = []
+
+    if n_persons == 1:
+        group.append(persons[0])
+        groups.append(group)
+        return groups
     
     landmarks = landmark_detection(persons)
 
