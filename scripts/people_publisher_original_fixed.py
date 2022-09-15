@@ -167,8 +167,6 @@ class PeoplePublisher():
                 app = SpaceModeling(groups) # Space modeling works in cm
                 pparams,gparams = app.solve()
 
-        
-
                 p = People()
                 p.header.frame_id = "/map"
                 p.header.stamp = rospy.Time.now()
@@ -201,45 +199,9 @@ class PeoplePublisher():
                         p1.position.y = group[i][1] / 100 # cm to m
                         p1.orientation = group[i][2]
                         
-                        p1.sx = sx 
-
-                        dist1 = 0
-                        dist2 = 0
-
-                        angle_dif = 0
-
-                        if len(group) == 2:
-                            angle_dif = group[0][2] - group [1][2]
-                            if angle_dif > math.pi:
-                                angle_dif -= 2*math.pi
-                            elif angle_dif <= -math.pi:
-                                angle_dif += 2*math.pi
-
-                            if i == 1:
-                                angle_dif = -angle_dif
-
-                        if i != len(group)-1:
-                            dist1 = euclidean_distance(group[i][0] / 100,group[i][1]/100,group[i+1][0]/100,group[i+1][1]/100)
-                        else:
-                            dist1 = euclidean_distance(group[i][0] / 100,group[i][1]/100,group[0][0]/100,group[0][1]/100)
-
-                        if i != 0:
-                            dist2 = euclidean_distance(group[i][0] / 100,group[i][1]/100,group[i-1][0]/100,group[i-1][1]/100)
-                        else:
-                            dist2 = euclidean_distance(group[i][0] / 100,group[i][1]/100,group[len(group)-1][0]/100,group[len(group)-1][1]/100)
-
-                        if dist1 > 1.3 and (len(group) != 2 or angle_dif >= 0):
-
-                            p1.sy = min((dist1-0.8)/2,sy)
-                        
-                        else:
-                            p1.sy = sy
-
-                        if dist2 > 1.3 and (len(group) != 2 or angle_dif < 0):
-                            p1.sy_right = min((dist2-0.8)/2,sy)
-
-                        else:
-                            p1.sy_right = sy
+                        p1.sx = sx
+                        p1.sy = sy
+                        p1.sy_right = sy
 
                         p1.sx_back = p1.sx / BACK_FACTOR
                         p1.ospace = False
