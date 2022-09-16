@@ -5,14 +5,14 @@
 
 import math
 import numpy as np
-from scipy.cluster.hierarchy import single, fcluster
-from scipy.spatial.distance import pdist
+from scipy.cluster.hierarchy import single, fcluster, average, weighted
+from scipy.spatial.distance import pdist, squareform
 import shapely
 from shapely.geometry import LineString, Point
 
 def distance_function(person1, person2, landmarks):
 
-    k = 0.4
+    k = 0.2
 
     person1_pose = np.array([person1[0]/100,person1[1]/100])
     person1_orient = np.array([math.cos(person1[2]),math.sin(person1[2])])
@@ -105,9 +105,12 @@ def hierarchical_clustering(persons):
                 dist_matrix[i][j] = aux_dist
                 dist_matrix[j][i] = aux_dist
 
-    link_matrix = single(dist_matrix)
+    dist_matrix = squareform(dist_matrix)
+    print(dist_matrix)
 
-    clusters = fcluster(link_matrix, 3, criterion='distance')
+    link_matrix = average(dist_matrix)
+
+    clusters = fcluster(link_matrix, 2, criterion='distance')
 
     for i in range(1, n_persons+1):
         for j in range(1, n_persons+1):

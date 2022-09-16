@@ -245,7 +245,7 @@ class PeoplePublisher():
                         angle_dif = 0
 
                         #Check if it is the chosen group to approach and try to adapt the model if it is
-                        if min_idx == idx:
+                        if min_idx != idx:
                             if len(group) == 2:
                                 angle_dif = group[0][2] - group [1][2]
                                 if angle_dif > math.pi:
@@ -256,27 +256,48 @@ class PeoplePublisher():
                                 if i == 1:
                                     angle_dif = -angle_dif
 
+                            # if i != len(group)-1:
+                            #     dist1 = euclidean_distance(group[i][0] / 100,group[i][1]/100,group[i+1][0]/100,group[i+1][1]/100)
+                            # else:
+                            #     dist1 = euclidean_distance(group[i][0] / 100,group[i][1]/100,group[0][0]/100,group[0][1]/100)
+
+                            # if i != 0:
+                            #     dist2 = euclidean_distance(group[i][0] / 100,group[i][1]/100,group[i-1][0]/100,group[i-1][1]/100)
+                            # else:
+                            #     dist2 = euclidean_distance(group[i][0] / 100,group[i][1]/100,group[len(group)-1][0]/100,group[len(group)-1][1]/100)
+
+                            aux_left = (p1.position.x+0.45*math.cos(p1.orientation+(math.pi/2)),p1.position.y+0.45*math.sin(p1.orientation+(math.pi/2)))
+                            aux_right = (p1.position.x+0.45*math.cos(p1.orientation-(math.pi/2)),p1.position.y+0.45*math.sin(p1.orientation-(math.pi/2)))
+
                             if i != len(group)-1:
-                                dist1 = euclidean_distance(group[i][0] / 100,group[i][1]/100,group[i+1][0]/100,group[i+1][1]/100)
+                                aux_left_adjacent = ((group[i+1][0]/100)+0.45*math.cos(group[i+1][2]-(math.pi/2)),(group[i+1][1]/100)+0.45*math.sin(group[i+1][2]-(math.pi/2)))
                             else:
-                                dist1 = euclidean_distance(group[i][0] / 100,group[i][1]/100,group[0][0]/100,group[0][1]/100)
+                                aux_left_adjacent = ((group[0][0]/100)+0.45*math.cos(group[0][2]-(math.pi/2)),(group[0][1]/100)+0.45*math.sin(group[0][2]-(math.pi/2)))
+
+                            dist1 = euclidean_distance(aux_left[0],aux_left[1],aux_left_adjacent[0],aux_left_adjacent[1])
 
                             if i != 0:
-                                dist2 = euclidean_distance(group[i][0] / 100,group[i][1]/100,group[i-1][0]/100,group[i-1][1]/100)
+                                aux_right_adjacent = ((group[i-1][0]/100)+0.45*math.cos(group[i-1][2]+(math.pi/2)),(group[i-1][1]/100)+0.45*math.sin(group[i-1][2]+(math.pi/2)))
                             else:
-                                dist2 = euclidean_distance(group[i][0] / 100,group[i][1]/100,group[len(group)-1][0]/100,group[len(group)-1][1]/100)
+                                aux_right_adjacent = ((group[len(group)-1][0]/100)+0.45*math.cos(group[len(group)-1][2]+(math.pi/2)),(group[len(group)-1][1]/100)+0.45*math.sin(group[len(group)-1][2]+(math.pi/2)))
 
-                        if min_idx == idx and dist1 > 1.3 and (len(group) != 2 or angle_dif >= 0):
+                            dist2 = euclidean_distance(aux_right[0],aux_right[1],aux_right_adjacent[0],aux_right_adjacent[1])
 
-                            p1.sy = min((dist1-0.8)/2,sy)
-                        
+                            min_dist = 0.8
+                            open_space = 0.8
+                            side_modifier = 0.6
+
+                            if dist1 > min_dist and (len(group) != 2 or angle_dif >= 0):
+                                p1.sy = min((dist1-open_space+side_modifier)/2,sy)
+                            else:
+                                p1.sy = sy
+                            
+                            if dist2 > min_dist and (len(group) != 2 or angle_dif < 0):
+                                p1.sy_right = min((dist2-open_space+side_modifier)/2,sy)
+                            else:
+                                p1.sy_right = sy
                         else:
                             p1.sy = sy
-
-                        if min_idx == idx and dist2 > 1.3 and (len(group) != 2 or angle_dif < 0):
-                            p1.sy_right = min((dist2-0.8)/2,sy)
-
-                        else:
                             p1.sy_right = sy
 
                         p1.sx_back = sx / BACK_FACTOR

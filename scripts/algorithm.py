@@ -433,7 +433,7 @@ class SpaceModeling:
         groups_params = []
         # Iterate over groups
         for k in range(len(self.group_data['group_nb'])):
-            print("Modeling Group " + str(k + 1) + " ...")
+            #print("Modeling Group " + str(k + 1) + " ...")
 
             group_radius = self.group_data['group_radius'][k]
             pspace_radius = self.group_data['pspace_radius'][k]
