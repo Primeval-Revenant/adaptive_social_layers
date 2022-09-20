@@ -106,7 +106,7 @@ def hierarchical_clustering(persons):
                 dist_matrix[j][i] = aux_dist
 
     dist_matrix = squareform(dist_matrix)
-    print(dist_matrix)
+    #print(dist_matrix)
 
     link_matrix = average(dist_matrix)
 
