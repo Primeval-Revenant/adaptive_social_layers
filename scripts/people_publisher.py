@@ -134,6 +134,7 @@ class PeoplePublisher():
 
             if (data is not None) and (not data.personList):
                 groups = []
+                self.pubd.publish(ap_points)
             elif data is not None:
                 for poseinfo in data.personList:
 
@@ -248,7 +249,7 @@ class PeoplePublisher():
                         angle_dif = 0
 
                         #Check if it is the chosen group to approach and try to adapt the model if it is
-                        if min_idx != idx:
+                        if len(group) != 1 and min_idx == idx:
                             if len(group) == 2:
                                 angle_dif = group[0][2] - group [1][2]
                                 if angle_dif > math.pi:
