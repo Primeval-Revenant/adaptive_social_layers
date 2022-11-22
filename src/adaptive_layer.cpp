@@ -95,6 +95,7 @@ namespace adaptive_social_layers
             else
                 point = std::max(person.sx,person.sy);
 
+            //Is this correct? Shouldn't some of these be -2? I don't know as there is no documentation at all!
             *min_x = std::min(*min_x, person.position.x - point + 2 );
             *min_y = std::min(*min_y, person.position.y - point + 2 );
             *max_x = std::max(*max_x, person.position.x + point + 2 );
@@ -126,9 +127,11 @@ namespace adaptive_social_layers
             double varp;
             double base;
             double point ;
+
+            //Why are these the same?! They get added to eachother and subtracted. Why would they be the same? Not touching in case it breaks...
             if (!person.ospace){ 
 
-                base = std::max(person.sx,person.sy) + 2  ;
+                base = std::max(person.sx,person.sy) + 2;
                 point = std::max(person.sx,person.sy) + 2;
             }
 
