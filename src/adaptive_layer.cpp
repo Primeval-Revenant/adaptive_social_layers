@@ -3,6 +3,7 @@
 #include <angles/angles.h>
 #include <pluginlib/class_list_macros.h>
 #include <ros/console.h>
+//#include "ros/ros.h"
 
 
 PLUGINLIB_EXPORT_CLASS(adaptive_social_layers::AdaptiveLayer, costmap_2d::Layer)
@@ -21,6 +22,10 @@ double gaussianPerson(double x, double y, double x0, double y0, double A, double
            f2 = pow(my, 2.0)/(2.0 * vary);
     double gauss = A * exp(-(f1 + f2));
     if(gauss > 254)
+    {
+        return 254;
+    }
+    else if (gauss > 190)
     {
         return 254;
     }
@@ -44,6 +49,10 @@ double gaussian(double x, double y, double x0, double y0, double A, double varx,
            f2 = pow(my, 2.0)/(2.0 * vary);
     double gauss = A * exp(-(f1 + f2));
     if(gauss > 254)
+    {
+        return 254;
+    }
+    else if (gauss > 190)
     {
         return 254;
     }
@@ -80,6 +89,7 @@ namespace adaptive_social_layers
         server_ = new dynamic_reconfigure::Server<AdaptiveLayerConfig>(nh);
         f_ = boost::bind(&AdaptiveLayer::configure, this, _1, _2);
         server_->setCallback(f_);
+        //ros::Publisher chatter_pub = n.advertise<std_msgs::String>("chatter", 1000);
     }
 
     void AdaptiveLayer::updateBoundsFromPeople(double* min_x, double* min_y, double* max_x, double* max_y)
@@ -95,11 +105,11 @@ namespace adaptive_social_layers
             else
                 point = std::max(person.sx,person.sy);
 
-            //Is this correct? Shouldn't some of these be -2? I don't know as there is no documentation at all!
-            *min_x = std::min(*min_x, person.position.x - point + 2 );
-            *min_y = std::min(*min_y, person.position.y - point + 2 );
-            *max_x = std::max(*max_x, person.position.x + point + 2 );
-            *max_y = std::max(*max_y, person.position.y + point + 2 );
+            //Is this correct? Shouldn't some of these be -2? I don't know as there is no documentation at all! Kinda fixed it, I think
+            *min_x = std::min(*min_x, person.position.x - (point + 2) );
+            *min_y = std::min(*min_y, person.position.y - (point + 2) );
+            *max_x = std::max(*max_x, person.position.x + (point + 2) );
+            *max_y = std::max(*max_y, person.position.y + (point + 2) );
 
         }
     }
@@ -183,6 +193,7 @@ namespace adaptive_social_layers
 
             double bx = ox + res / 2,
                    by = oy + res / 2;
+
             for(int i=start_x;i<end_x;i++){
                 for(int j=start_y;j<end_y;j++){
                     unsigned char old_cost = costmap->getCost(i+dx, j+dy);
@@ -195,12 +206,11 @@ namespace adaptive_social_layers
                     double a;
 
                     // Convert personal space parameters to ros gaussian parameters for a fixed amplitude and cutoff 
-                    double sx = (pow(person.sx, 2) / (log(cutoff_/amplitude_))/ (-2));
-                    double sy = (pow(person.sy, 2) / (log(cutoff_/amplitude_))/ (-2));
-                    double sx_back = (pow(person.sx_back, 2) / (log(cutoff_/amplitude_))/ (-2));
-                    double sy_right = (pow(person.sy_right, 2) / (log(cutoff_/amplitude_))/ (-2));
-
-
+                    double sx = pow(person.sx, 2); // (log(cutoff_/amplitude_))/ (-2));
+                    double sy = pow(person.sy, 2); // (log(cutoff_/amplitude_))/ (-2));
+                    double sx_back = pow(person.sx_back, 2); // (log(cutoff_/amplitude_))/ (-2));
+                    double sy_right = pow(person.sy_right, 2); // (log(cutoff_/amplitude_))/ (-2));
+                    
                     if(person.ospace){
                         if(fabs(diff)<M_PI/2)
                             a = gaussian(x,y,cx,cy,amplitude_, sx, sy,person.orientation);
