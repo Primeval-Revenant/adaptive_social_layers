@@ -356,4 +356,4 @@ class PeoplePublisher():
 if __name__ == '__main__':
     people_publisher = PeoplePublisher()
     people_publisher.publish()
-    eng.quit()
+    #eng.quit()
