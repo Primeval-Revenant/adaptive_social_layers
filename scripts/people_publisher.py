@@ -74,6 +74,7 @@ class PeoplePublisher():
         rospy.init_node('PeoplePublisher', anonymous=True)
         rospy.Subscriber("/human_trackers",TrackedPersonsList,self.callback,queue_size=1)
         rospy.Subscriber("/approach_target",PointStamped,self.callbackapproach,queue_size=1)
+        rospy.Subscriber("/clicked_point",PointStamped, self.callbackPoint, queue_size=1)
         self.loop_rate = rospy.Rate(rospy.get_param('~loop_rate', 10.0))
         self.pose_received = False
         self.target_received = False
@@ -91,6 +92,11 @@ class PeoplePublisher():
         
         self.data = data
         self.pose_received = True
+
+    def callbackPoint(self,data):
+        
+        self.approach_target = data
+        self.target_received = True
 
     def callbackapproach(self,data):
         """
