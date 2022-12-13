@@ -26,8 +26,10 @@ import actionlib
 STRIDE = 65 # in cm
 MDL = 8000
 
-min_dist_space = 0.8
-open_space = 0.8
+MIN_DIST_SPACE = 0.8
+OPEN_SPACE = 0.8
+
+ADAPT_LIMIT = 0.5
 
 # Relation between personal frontal space and back space
 BACK_FACTOR = 1.3
@@ -241,13 +243,14 @@ class PeoplePublisher():
                         p1.velocity.linear.y = group[i][4]
                         sum_x_vel += group[i][3]
                         sum_y_vel += group[i][4]
-                        sum_vel += math.sqrt(group[i][3]**2+group[i][4]**2)
+                        vel_magnitude = np.linalg.norm([group[i][3],group[i][4]])
+                        sum_vel += vel_magnitude
 
                         #Check if group or individual and if it is the chosen group to approach
                         if (len(group) != 1 or min_idx != idx):
-                            p1.sx = sx*(1+0.8*math.sqrt(group[i][3]**2+group[i][4]**2)) 
+                            p1.sx = min(sx*(1+5*vel_magnitude),sx+ADAPT_LIMIT)
                         else:
-                            p1.sx = min(0.9*(1+0.8*math.sqrt(group[i][3]**2+group[i][4]**2)),sx*(1+0.8**math.sqrt(group[i][3]**2+group[i][4]**2)))
+                            p1.sx = min(0.9*(1+5*vel_magnitude),0.9+ADAPT_LIMIT,sx+ADAPT_LIMIT,sx*(1+5*vel_magnitude))
 
                         dist1 = 0
                         dist2 = 0
@@ -272,7 +275,7 @@ class PeoplePublisher():
                             #     dist1 = euclidean_distance(group[i][0] / 100,group[i][1]/100,group[0][0]/100,group[0][1]/100)
 
                             # if i != 0:
-                            #     dist2 = euclidean_distance(group[i][0] / 100,group[i][1]/100,group[i-1][0]/100,group[i-1][1]/100)
+                            #     dist2 = euclidean_distance(group[i][0] / 100,group[i]math.sqrt(group[i][3]**2+group[i][4]**2)[1]/100,group[i-1][0]/100,group[i-1][1]/100)
                             # else:
                             #     dist2 = euclidean_distance(group[i][0] / 100,group[i][1]/100,group[len(group)-1][0]/100,group[len(group)-1][1]/100)
 
@@ -293,20 +296,20 @@ class PeoplePublisher():
 
                             dist2 = euclidean_distance(aux_right[0],aux_right[1],aux_right_adjacent[0],aux_right_adjacent[1])
 
-                            if dist1 > min_dist_space and (len(group) != 2 or angle_dif >= 0):
+                            if dist1 > MIN_DIST_SPACE and (len(group) != 2 or angle_dif >= 0):
                                 aux_vector = (aux_left_adjacent-aux_left)/dist1
-                                aux_point = aux_left+((dist1-open_space)/2)*aux_vector
+                                aux_point = aux_left+((dist1-OPEN_SPACE)/2)*aux_vector
                                 dist_aux = euclidean_distance(aux_point[0],aux_point[1],p1.position.x,p1.position.y)
-                                #p1.sy = min((dist1-open_space+side_modifier)/2,sy)
+                                #p1.sy = min((dist1-OPEN_SPACE+side_modifier)/2,sy)
                                 p1.sy = min(dist_aux,sy)
                             else:
                                 p1.sy = sy
                             
-                            if dist2 > min_dist_space and (len(group) != 2 or angle_dif < 0):
+                            if dist2 > MIN_DIST_SPACE and (len(group) != 2 or angle_dif < 0):
                                 aux_vector = (aux_right_adjacent-aux_right)/dist2
-                                aux_point = aux_right+((dist2-open_space)/2)*aux_vector
+                                aux_point = aux_right+((dist2-OPEN_SPACE)/2)*aux_vector
                                 dist_aux = euclidean_distance(aux_point[0],aux_point[1],p1.position.x,p1.position.y)
-                                #p1.sy_right = min((dist2-open_space+side_modifier)/2,sy)
+                                #p1.sy_right = min((dist2-OPEN_SPACE+side_modifier)/2,sy)
                                 p1.sy_right = min(dist_aux,sy)
                             else:
                                 p1.sy_right = sy
@@ -331,7 +334,7 @@ class PeoplePublisher():
                         p1.orientation = math.atan2(sum_y_vel,sum_x_vel)
                         p1.velocity.linear.x = math.cos(p1.orientation)*(sum_vel/len(group))
                         p1.velocity.linear.y = math.sin(p1.orientation)*(sum_vel/len(group))
-                        p1.sx = gvarx*(1 + 0.8*(sum_vel/len(group)))
+                        p1.sx = min(gvarx*(1 + 5*(sum_vel/len(group))),gvarx+ADAPT_LIMIT)
                         p1.sx_back = gvarx
                         p1.sy = gvary
                         p1.ospace = True
