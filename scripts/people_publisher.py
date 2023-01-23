@@ -29,6 +29,8 @@ MDL = 8000
 MIN_DIST_SPACE = 0.8
 OPEN_SPACE = 0.8
 
+VEL_ADAPT_FACTOR = 5
+
 ADAPT_LIMIT = 0.5
 
 # Relation between personal frontal space and back space
@@ -248,9 +250,9 @@ class PeoplePublisher():
 
                         #Check if group or individual and if it is the chosen group to approach
                         if (len(group) != 1 or min_idx != idx):
-                            p1.sx = min(sx*(1+5*vel_magnitude),sx+ADAPT_LIMIT)
+                            p1.sx = min(sx*(1+VEL_ADAPT_FACTOR*vel_magnitude),sx+ADAPT_LIMIT)
                         else:
-                            p1.sx = min(0.9*(1+5*vel_magnitude),0.9+ADAPT_LIMIT,sx+ADAPT_LIMIT,sx*(1+5*vel_magnitude))
+                            p1.sx = min(0.9*(1+VEL_ADAPT_FACTOR*vel_magnitude),0.9+ADAPT_LIMIT,sx+ADAPT_LIMIT,sx*(1+VEL_ADAPT_FACTOR*vel_magnitude))
 
                         dist1 = 0
                         dist2 = 0
@@ -334,7 +336,7 @@ class PeoplePublisher():
                         p1.orientation = math.atan2(sum_y_vel,sum_x_vel)
                         p1.velocity.linear.x = math.cos(p1.orientation)*(sum_vel/len(group))
                         p1.velocity.linear.y = math.sin(p1.orientation)*(sum_vel/len(group))
-                        p1.sx = min(gvarx*(1 + 5*(sum_vel/len(group))),gvarx+ADAPT_LIMIT)
+                        p1.sx = min(gvarx*(1 + VEL_ADAPT_FACTOR*(sum_vel/len(group))),gvarx+ADAPT_LIMIT)
                         p1.sx_back = gvarx
                         p1.sy = gvary
                         p1.ospace = True

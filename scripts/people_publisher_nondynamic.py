@@ -240,7 +240,7 @@ class PeoplePublisher():
                         sum_vel += math.sqrt(group[i][3]**2+group[i][4]**2)
 
                         #Check if group or individual and if it is the chosen group to approach
-                        if (len(group) != 1 or min_idx != idx):
+                        if (len(group) != 1 or min_idx != -1):
                             p1.sx = sx*(1+VEL_ADAPT_FACTOR*math.sqrt(group[i][3]**2+group[i][4]**2)) 
                         else:
                             p1.sx = min(0.9*(1+VEL_ADAPT_FACTOR*math.sqrt(group[i][3]**2+group[i][4]**2)),sx*(1+VEL_ADAPT_FACTOR**math.sqrt(group[i][3]**2+group[i][4]**2)))
@@ -251,7 +251,7 @@ class PeoplePublisher():
                         angle_dif = 0
 
                         #Check if it is the chosen group to approach and try to adapt the model if it is
-                        if len(group) != 1 and min_idx == idx:
+                        if len(group) != 1 and min_idx == -1:
                             if len(group) == 2:
                                 angle_dif = group[0][2] - group [1][2]
                                 if angle_dif > math.pi:
