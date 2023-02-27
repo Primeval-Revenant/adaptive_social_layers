@@ -29,6 +29,8 @@ MDL = 8000
 MIN_DIST_SPACE = 0.8
 OPEN_SPACE = 0.8
 
+HUMAN_SIDE_FACTOR = 0.45/2
+
 VEL_ADAPT_FACTOR = 5
 
 ADAPT_LIMIT = 0.5
@@ -119,6 +121,7 @@ class PeoplePublisher():
         listener = tf.TransformListener(tfBuffer)
 
         rate = rospy.Rate(10.0)
+        aux_count_vel = 0
         while not rospy.is_shutdown():
             try:
 
@@ -241,12 +244,33 @@ class PeoplePublisher():
                         p1.position.x = group[i][0] / 100 # cm to m
                         p1.position.y = group[i][1] / 100 # cm to m
                         p1.orientation = group[i][2]
-                        p1.velocity.linear.x = group[i][3]
-                        p1.velocity.linear.y = group[i][4]
-                        sum_x_vel += group[i][3]
-                        sum_y_vel += group[i][4]
+                        #p1.velocity.linear.x = group[i][3]
+                        #p1.velocity.linear.y = group[i][4]
+                        #sum_x_vel += group[i][3]
+                        #sum_y_vel += group[i][4]
                         vel_magnitude = np.linalg.norm([group[i][3],group[i][4]])
-                        sum_vel += vel_magnitude
+                        if vel_magnitude > 0.0001:
+                            aux_count_vel = 10
+
+                        if aux_count_vel > 0 and vel_magnitude < 0.01:
+                            p1.velocity.linear.x = aux_vel[0]
+                            p1.velocity.linear.y = aux_vel[1]
+                            sum_x_vel = aux_vel[2]
+                            sum_y_vel = aux_vel[3]
+                            sum_vel = aux_vel[4]
+                            aux_count_vel = aux_count_vel - 1
+                        else:
+                            p1.velocity.linear.x = group[i][3]
+                            p1.velocity.linear.y = group[i][4]
+                            sum_x_vel += group[i][3]
+                            sum_y_vel += group[i][4]
+                            sum_vel += vel_magnitude
+                            aux_vel = (group[i][3],group[i][4],sum_x_vel,sum_y_vel,sum_vel)
+                        # p1.velocity.linear.x = group[i][3]
+                        # p1.velocity.linear.y = group[i][4]
+                        # sum_x_vel += group[i][3]
+                        # sum_y_vel += group[i][4]
+                        # sum_vel += vel_magnitude
 
                         #Check if group or individual and if it is the chosen group to approach
                         if (len(group) != 1 or min_idx != idx):
@@ -281,20 +305,20 @@ class PeoplePublisher():
                             # else:
                             #     dist2 = euclidean_distance(group[i][0] / 100,group[i][1]/100,group[len(group)-1][0]/100,group[len(group)-1][1]/100)
 
-                            aux_left = np.asarray((p1.position.x+0.45*math.cos(p1.orientation+(math.pi/2)),p1.position.y+0.45*math.sin(p1.orientation+(math.pi/2))))
-                            aux_right = np.asarray((p1.position.x+0.45*math.cos(p1.orientation-(math.pi/2)),p1.position.y+0.45*math.sin(p1.orientation-(math.pi/2))))
+                            aux_left = np.asarray((p1.position.x+HUMAN_SIDE_FACTOR*math.cos(p1.orientation+(math.pi/2)),p1.position.y+HUMAN_SIDE_FACTOR*math.sin(p1.orientation+(math.pi/2))))
+                            aux_right = np.asarray((p1.position.x+HUMAN_SIDE_FACTOR*math.cos(p1.orientation-(math.pi/2)),p1.position.y+HUMAN_SIDE_FACTOR*math.sin(p1.orientation-(math.pi/2))))
 
                             if i != len(group)-1:
-                                aux_left_adjacent = np.asarray(((group[i+1][0]/100)+0.45*math.cos(group[i+1][2]-(math.pi/2)),(group[i+1][1]/100)+0.45*math.sin(group[i+1][2]-(math.pi/2))))
+                                aux_left_adjacent = np.asarray(((group[i+1][0]/100)+HUMAN_SIDE_FACTOR*math.cos(group[i+1][2]-(math.pi/2)),(group[i+1][1]/100)+HUMAN_SIDE_FACTOR*math.sin(group[i+1][2]-(math.pi/2))))
                             else:
-                                aux_left_adjacent = np.asarray(((group[0][0]/100)+0.45*math.cos(group[0][2]-(math.pi/2)),(group[0][1]/100)+0.45*math.sin(group[0][2]-(math.pi/2))))
+                                aux_left_adjacent = np.asarray(((group[0][0]/100)+HUMAN_SIDE_FACTOR*math.cos(group[0][2]-(math.pi/2)),(group[0][1]/100)+HUMAN_SIDE_FACTOR*math.sin(group[0][2]-(math.pi/2))))
 
                             dist1 = euclidean_distance(aux_left[0],aux_left[1],aux_left_adjacent[0],aux_left_adjacent[1])
 
                             if i != 0:
-                                aux_right_adjacent = np.asarray(((group[i-1][0]/100)+0.45*math.cos(group[i-1][2]+(math.pi/2)),(group[i-1][1]/100)+0.45*math.sin(group[i-1][2]+(math.pi/2))))
+                                aux_right_adjacent = np.asarray(((group[i-1][0]/100)+HUMAN_SIDE_FACTOR*math.cos(group[i-1][2]+(math.pi/2)),(group[i-1][1]/100)+HUMAN_SIDE_FACTOR*math.sin(group[i-1][2]+(math.pi/2))))
                             else:
-                                aux_right_adjacent = np.asarray(((group[len(group)-1][0]/100)+0.45*math.cos(group[len(group)-1][2]+(math.pi/2)),(group[len(group)-1][1]/100)+0.45*math.sin(group[len(group)-1][2]+(math.pi/2))))
+                                aux_right_adjacent = np.asarray(((group[len(group)-1][0]/100)+HUMAN_SIDE_FACTOR*math.cos(group[len(group)-1][2]+(math.pi/2)),(group[len(group)-1][1]/100)+HUMAN_SIDE_FACTOR*math.sin(group[len(group)-1][2]+(math.pi/2))))
 
                             dist2 = euclidean_distance(aux_right[0],aux_right[1],aux_right_adjacent[0],aux_right_adjacent[1])
 
