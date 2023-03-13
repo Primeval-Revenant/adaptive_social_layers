@@ -31,9 +31,13 @@ OPEN_SPACE = 0.8
 
 HUMAN_SIDE_FACTOR = 0.45/2
 
-VEL_ADAPT_FACTOR = 5
+DISTANCE_ADAPT = 6
 
-ADAPT_LIMIT = 0.5
+VEL_ADAPT_FACTOR = 1.5
+GROUP_VEL_ADAPT_FACTOR = 1.5
+
+ADAPT_LIMIT = 1
+GROUP_ADAPT_LIMIT = 1
 
 # Relation between personal frontal space and back space
 BACK_FACTOR = 1.3
@@ -249,34 +253,40 @@ class PeoplePublisher():
                         #sum_x_vel += group[i][3]
                         #sum_y_vel += group[i][4]
                         vel_magnitude = np.linalg.norm([group[i][3],group[i][4]])
-                        if vel_magnitude > 0.0001:
-                            aux_count_vel = 10
+                        # if vel_magnitude > 0.5:
+                        #     aux_count_vel = 10
 
-                        if aux_count_vel > 0 and vel_magnitude < 0.01:
-                            p1.velocity.linear.x = aux_vel[0]
-                            p1.velocity.linear.y = aux_vel[1]
-                            sum_x_vel = aux_vel[2]
-                            sum_y_vel = aux_vel[3]
-                            sum_vel = aux_vel[4]
-                            aux_count_vel = aux_count_vel - 1
+                        # if aux_count_vel > 0 and vel_magnitude < 0.5:
+                        #     p1.velocity.linear.x = aux_vel[0]
+                        #     p1.velocity.linear.y = aux_vel[1]
+                        #     sum_x_vel = aux_vel[2]
+                        #     sum_y_vel = aux_vel[3]
+                        #     sum_vel = aux_vel[4]
+                        #     aux_count_vel = aux_count_vel - 1
+                        # else:
+                        #     p1.velocity.linear.x = group[i][3]
+                        #     p1.velocity.linear.y = group[i][4]
+                        #     sum_x_vel += group[i][3]
+                        #     sum_y_vel += group[i][4]
+                        #     sum_vel += vel_magnitude
+                        #     aux_vel = (group[i][3],group[i][4],sum_x_vel,sum_y_vel,sum_vel)
+                        p1.velocity.linear.x = group[i][3]
+                        p1.velocity.linear.y = group[i][4]
+                        sum_x_vel += group[i][3]
+                        sum_y_vel += group[i][4]
+                        sum_vel += vel_magnitude
+
+                        dist_pose = euclidean_distance(tx,ty,p1.position.x,p1.position.y)
+                        if dist_pose > DISTANCE_ADAPT:
+                            dist_modifier = 1
                         else:
-                            p1.velocity.linear.x = group[i][3]
-                            p1.velocity.linear.y = group[i][4]
-                            sum_x_vel += group[i][3]
-                            sum_y_vel += group[i][4]
-                            sum_vel += vel_magnitude
-                            aux_vel = (group[i][3],group[i][4],sum_x_vel,sum_y_vel,sum_vel)
-                        # p1.velocity.linear.x = group[i][3]
-                        # p1.velocity.linear.y = group[i][4]
-                        # sum_x_vel += group[i][3]
-                        # sum_y_vel += group[i][4]
-                        # sum_vel += vel_magnitude
+                            dist_modifier = min(1,(dist_pose/DISTANCE_ADAPT)*2)
 
                         #Check if group or individual and if it is the chosen group to approach
                         if (len(group) != 1 or min_idx != idx):
-                            p1.sx = min(sx*(1+VEL_ADAPT_FACTOR*vel_magnitude),sx+ADAPT_LIMIT)
+                            p1.sx = min(sx*(1+dist_modifier*VEL_ADAPT_FACTOR*vel_magnitude),sx+ADAPT_LIMIT)
                         else:
-                            p1.sx = min(0.9*(1+VEL_ADAPT_FACTOR*vel_magnitude),0.9+ADAPT_LIMIT,sx+ADAPT_LIMIT,sx*(1+VEL_ADAPT_FACTOR*vel_magnitude))
+                            p1.sx = min(0.9*(1+dist_modifier*VEL_ADAPT_FACTOR*vel_magnitude),0.9+ADAPT_LIMIT,sx+ADAPT_LIMIT,sx*(1+dist_modifier*VEL_ADAPT_FACTOR*vel_magnitude))
 
                         dist1 = 0
                         dist2 = 0
@@ -322,7 +332,7 @@ class PeoplePublisher():
 
                             dist2 = euclidean_distance(aux_right[0],aux_right[1],aux_right_adjacent[0],aux_right_adjacent[1])
 
-                            if dist1 > MIN_DIST_SPACE and (len(group) != 2 or angle_dif >= 0):
+                            if dist1 > MIN_DIST_SPACE and (len(group) != 2 or angle_dif > 0):
                                 aux_vector = (aux_left_adjacent-aux_left)/dist1
                                 aux_point = aux_left+((dist1-OPEN_SPACE)/2)*aux_vector
                                 dist_aux = euclidean_distance(aux_point[0],aux_point[1],p1.position.x,p1.position.y)
@@ -360,7 +370,13 @@ class PeoplePublisher():
                         p1.orientation = math.atan2(sum_y_vel,sum_x_vel)
                         p1.velocity.linear.x = math.cos(p1.orientation)*(sum_vel/len(group))
                         p1.velocity.linear.y = math.sin(p1.orientation)*(sum_vel/len(group))
-                        p1.sx = min(gvarx*(1 + VEL_ADAPT_FACTOR*(sum_vel/len(group))),gvarx+ADAPT_LIMIT)
+
+                        dist_pose = euclidean_distance(tx,ty,p1.position.x,p1.position.y)
+                        if dist_pose > DISTANCE_ADAPT:
+                            dist_modifier = 1
+                        else:
+                            dist_modifier = min(1,(dist_pose/DISTANCE_ADAPT)*2)
+                        p1.sx = min(gvarx*(1 + dist_modifier*GROUP_VEL_ADAPT_FACTOR*(sum_vel/len(group))),gvarx+GROUP_ADAPT_LIMIT)
                         p1.sx_back = gvarx
                         p1.sy = gvary
                         p1.ospace = True
