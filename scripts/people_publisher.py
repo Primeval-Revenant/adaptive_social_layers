@@ -1,7 +1,5 @@
 #!/usr/bin/env python
 
-
-
 import rospy
 from group_msgs.msg import People, Person, Groups
 from human_awareness_msgs.msg import PersonTracker, TrackedPersonsList
@@ -18,26 +16,27 @@ from clustering_algorithm import hierarchical_clustering
 
 import actionlib
 
-# import matlab.engine
-# eng = matlab.engine.start_matlab()
-# eng.cd(r'/home/ricarte/catkin_ws/src/adaptive_social_layers/scripts', nargout=0)
-
-
 STRIDE = 65 # in cm
-MDL = 8000
 
+#Optimally, the width of the robot or a slightly larger value. Determines minimum size of approach zone.
 MIN_DIST_SPACE = 0.8
 OPEN_SPACE = 0.8
 
-HUMAN_SIDE_FACTOR = 0.45/2
+#Value which determines safety zone between person and approach zone
+HUMAN_SIDE_FACTOR = 0.375
 
-DISTANCE_ADAPT = 6
+#Preset value for individual adaptation
+INDIV_LOWER_VALUE = 0.3
 
+#Variables that moderate the effect of velocity on the personal and group spaces
 VEL_ADAPT_FACTOR = 1.5
 GROUP_VEL_ADAPT_FACTOR = 1.5
 
+#Variables that limit the maximum value of the velocity adaptation
 ADAPT_LIMIT = 1
 GROUP_ADAPT_LIMIT = 1
+
+DISTANCE_ADAPT = 6 #Moderates velocity adaptation upon reaching a distance threshold
 
 # Relation between personal frontal space and back space
 BACK_FACTOR = 1.3
@@ -60,10 +59,17 @@ def calc_o_space(persons):
     return center
 
 def euclidean_distance(x1, y1, x2, y2):
-    """Euclidean distance between two points in 2D."""
+    """Euclidean distance between two points in 2D. Probably better substituted by just using numpy's norm"""
     dist = math.sqrt((x2 - x1) ** 2 + (y2 - y1) ** 2)
     return dist
 
+#https://stackoverflow.com/questions/61341712/calculate-projected-point-location-x-y-on-given-line-startx-y-endx-y
+def point_on_line(a, b, p):
+    """Project a point on a line, given 3 points, 2 of them forming said line"""
+    ap = p - a
+    ab = b - a
+    result = a + np.dot(ap, ab) / np.dot(ab, ab) * ab
+    return result
 
 def rotate(px, py, angle):
     """
@@ -82,9 +88,9 @@ class PeoplePublisher():
         """
         """
         rospy.init_node('PeoplePublisher', anonymous=True)
-        rospy.Subscriber("/human_trackers",TrackedPersonsList,self.callback,queue_size=1)
-        rospy.Subscriber("/approach_target",PointStamped,self.callbackapproach,queue_size=1)
-        rospy.Subscriber("/clicked_point",PointStamped, self.callbackPoint, queue_size=1)
+        rospy.Subscriber("/human_trackers",TrackedPersonsList,self.callback,queue_size=1) #Subscribe to the human tracker
+        rospy.Subscriber("/approach_target",PointStamped,self.callbackapproach,queue_size=1) #Subscribe to the approach target from the approach pose estimator
+        rospy.Subscriber("/clicked_point",PointStamped, self.callbackPoint, queue_size=1) #Receive initial approach target
         self.loop_rate = rospy.Rate(rospy.get_param('~loop_rate', 10.0))
         self.pose_received = False
         self.target_received = False
@@ -154,9 +160,8 @@ class PeoplePublisher():
                 self.pubd.publish(ap_points)
             elif data is not None:
                 for poseinfo in data.personList:
-
-                    #rospy.loginfo("Person Detected")
-
+                    
+                    #Extract data about the existent people
                     pose = poseinfo.body_pose
 
                     quaternion = [pose.orientation.x, pose.orientation.y, pose.orientation.z, pose.orientation.w]
@@ -175,7 +180,7 @@ class PeoplePublisher():
                     #########################
                     (_, _, yaw) = convert.transformations.euler_from_quaternion(quaternion)
 
-                    # Pose transformation from base footprint frame to map frame
+                    # Pose transformation from odom frame to map frame
                     (px, py) = rotate(pose.position.x, pose.position.y, t_yaw)
                     pose_x = px + tx
                     pose_y = py + ty
@@ -186,11 +191,9 @@ class PeoplePublisher():
                     persons.append(pose_person)
 
                 self.pubd.publish(ap_points) # Pose Array of individuals publisher
-
-            # Run GCFF gcff.m Matlab function - OLD   
+  
             #Run a clustering algorithm for group detection
             if persons:
-                #groups = eng.gcff(MDL,STRIDE, matlab.double(persons))
                 groups = hierarchical_clustering(persons)
     
             if groups:
@@ -239,43 +242,22 @@ class PeoplePublisher():
                     sum_y_vel = 0
                     sum_vel = 0
 
-                    ############## FIXED
-                    #sx = 0.9
-                    #sy = 0.9
-                    #########################
                     for i in range(len(group)):
                         p1 = Person()
                         p1.position.x = group[i][0] / 100 # cm to m
                         p1.position.y = group[i][1] / 100 # cm to m
                         p1.orientation = group[i][2]
-                        #p1.velocity.linear.x = group[i][3]
-                        #p1.velocity.linear.y = group[i][4]
-                        #sum_x_vel += group[i][3]
-                        #sum_y_vel += group[i][4]
-                        vel_magnitude = np.linalg.norm([group[i][3],group[i][4]])
-                        # if vel_magnitude > 0.5:
-                        #     aux_count_vel = 10
 
-                        # if aux_count_vel > 0 and vel_magnitude < 0.5:
-                        #     p1.velocity.linear.x = aux_vel[0]
-                        #     p1.velocity.linear.y = aux_vel[1]
-                        #     sum_x_vel = aux_vel[2]
-                        #     sum_y_vel = aux_vel[3]
-                        #     sum_vel = aux_vel[4]
-                        #     aux_count_vel = aux_count_vel - 1
-                        # else:
-                        #     p1.velocity.linear.x = group[i][3]
-                        #     p1.velocity.linear.y = group[i][4]
-                        #     sum_x_vel += group[i][3]
-                        #     sum_y_vel += group[i][4]
-                        #     sum_vel += vel_magnitude
-                        #     aux_vel = (group[i][3],group[i][4],sum_x_vel,sum_y_vel,sum_vel)
+                        vel_magnitude = np.linalg.norm([group[i][3],group[i][4]])
                         p1.velocity.linear.x = group[i][3]
                         p1.velocity.linear.y = group[i][4]
+
+                        #Prepare variables for group velocity calculations
                         sum_x_vel += group[i][3]
                         sum_y_vel += group[i][4]
                         sum_vel += vel_magnitude
 
+                        #Check distance between robot and person to check if it must moderate velocity adaptation
                         dist_pose = euclidean_distance(tx,ty,p1.position.x,p1.position.y)
                         if dist_pose > DISTANCE_ADAPT:
                             dist_modifier = 1
@@ -286,7 +268,8 @@ class PeoplePublisher():
                         if (len(group) != 1 or min_idx != idx):
                             p1.sx = min(sx*(1+dist_modifier*VEL_ADAPT_FACTOR*vel_magnitude),sx+ADAPT_LIMIT)
                         else:
-                            p1.sx = min(0.9*(1+dist_modifier*VEL_ADAPT_FACTOR*vel_magnitude),0.9+ADAPT_LIMIT,sx+ADAPT_LIMIT,sx*(1+dist_modifier*VEL_ADAPT_FACTOR*vel_magnitude))
+                            lower_value = max(0.45,sx-INDIV_LOWER_VALUE)
+                            p1.sx = min(lower_value*(1+dist_modifier*VEL_ADAPT_FACTOR*vel_magnitude),lower_value+ADAPT_LIMIT,sx+ADAPT_LIMIT,sx*(1+dist_modifier*VEL_ADAPT_FACTOR*vel_magnitude))
 
                         dist1 = 0
                         dist2 = 0
@@ -305,47 +288,46 @@ class PeoplePublisher():
                                 if i == 1:
                                     angle_dif = -angle_dif
 
-                            # if i != len(group)-1:
-                            #     dist1 = euclidean_distance(group[i][0] / 100,group[i][1]/100,group[i+1][0]/100,group[i+1][1]/100)
-                            # else:
-                            #     dist1 = euclidean_distance(group[i][0] / 100,group[i][1]/100,group[0][0]/100,group[0][1]/100)
-
-                            # if i != 0:
-                            #     dist2 = euclidean_distance(group[i][0] / 100,group[i]math.sqrt(group[i][3]**2+group[i][4]**2)[1]/100,group[i-1][0]/100,group[i-1][1]/100)
-                            # else:
-                            #     dist2 = euclidean_distance(group[i][0] / 100,group[i][1]/100,group[len(group)-1][0]/100,group[len(group)-1][1]/100)
-
+                            #Calculate points HUMAN_SIDE_FACTOR of distance to the left and right of the person
                             aux_left = np.asarray((p1.position.x+HUMAN_SIDE_FACTOR*math.cos(p1.orientation+(math.pi/2)),p1.position.y+HUMAN_SIDE_FACTOR*math.sin(p1.orientation+(math.pi/2))))
                             aux_right = np.asarray((p1.position.x+HUMAN_SIDE_FACTOR*math.cos(p1.orientation-(math.pi/2)),p1.position.y+HUMAN_SIDE_FACTOR*math.sin(p1.orientation-(math.pi/2))))
 
+                            #Calculate the equivalent point on the person to the left
                             if i != len(group)-1:
                                 aux_left_adjacent = np.asarray(((group[i+1][0]/100)+HUMAN_SIDE_FACTOR*math.cos(group[i+1][2]-(math.pi/2)),(group[i+1][1]/100)+HUMAN_SIDE_FACTOR*math.sin(group[i+1][2]-(math.pi/2))))
                             else:
                                 aux_left_adjacent = np.asarray(((group[0][0]/100)+HUMAN_SIDE_FACTOR*math.cos(group[0][2]-(math.pi/2)),(group[0][1]/100)+HUMAN_SIDE_FACTOR*math.sin(group[0][2]-(math.pi/2))))
 
-                            dist1 = euclidean_distance(aux_left[0],aux_left[1],aux_left_adjacent[0],aux_left_adjacent[1])
+                            #Distance between the points
+                            dist1 = np.linalg.norm(aux_left-aux_left_adjacent)
 
+                            #Calculate the equivalent point on the person to the right
                             if i != 0:
                                 aux_right_adjacent = np.asarray(((group[i-1][0]/100)+HUMAN_SIDE_FACTOR*math.cos(group[i-1][2]+(math.pi/2)),(group[i-1][1]/100)+HUMAN_SIDE_FACTOR*math.sin(group[i-1][2]+(math.pi/2))))
                             else:
                                 aux_right_adjacent = np.asarray(((group[len(group)-1][0]/100)+HUMAN_SIDE_FACTOR*math.cos(group[len(group)-1][2]+(math.pi/2)),(group[len(group)-1][1]/100)+HUMAN_SIDE_FACTOR*math.sin(group[len(group)-1][2]+(math.pi/2))))
 
-                            dist2 = euclidean_distance(aux_right[0],aux_right[1],aux_right_adjacent[0],aux_right_adjacent[1])
+                            #Distance between the points
+                            dist2 = np.linalg.norm(aux_right-aux_right_adjacent)
+                            
+                            position_aux = np.asarray((p1.position.x,p1.position.y))
 
+                            #Determine whether to adapt the left side
                             if dist1 > MIN_DIST_SPACE and (len(group) != 2 or angle_dif > 0):
                                 aux_vector = (aux_left_adjacent-aux_left)/dist1
-                                aux_point = aux_left+((dist1-OPEN_SPACE)/2)*aux_vector
-                                dist_aux = euclidean_distance(aux_point[0],aux_point[1],p1.position.x,p1.position.y)
-                                #p1.sy = min((dist1-OPEN_SPACE+side_modifier)/2,sy)
+                                aux_point = aux_left+((dist1-OPEN_SPACE)/2)*aux_vector 
+                                projected = point_on_line(aux_left,position_aux,aux_point)
+                                dist_aux = np.linalg.norm(position_aux-projected)
                                 p1.sy = min(dist_aux,sy)
                             else:
                                 p1.sy = sy
                             
+                            #Determine whether to adapt the right side
                             if dist2 > MIN_DIST_SPACE and (len(group) != 2 or angle_dif < 0):
                                 aux_vector = (aux_right_adjacent-aux_right)/dist2
                                 aux_point = aux_right+((dist2-OPEN_SPACE)/2)*aux_vector
-                                dist_aux = euclidean_distance(aux_point[0],aux_point[1],p1.position.x,p1.position.y)
-                                #p1.sy_right = min((dist2-OPEN_SPACE+side_modifier)/2,sy)
+                                projected = point_on_line(aux_right,position_aux,aux_point)
+                                dist_aux = np.linalg.norm(position_aux-projected)
                                 p1.sy_right = min(dist_aux,sy)
                             else:
                                 p1.sy_right = sy
@@ -367,15 +349,17 @@ class PeoplePublisher():
                         p1 = Person()
                         p1.position.x = center[0] / 100 # cm to m
                         p1.position.y = center[1] / 100 # cm to m
-                        p1.orientation = math.atan2(sum_y_vel,sum_x_vel)
+                        p1.orientation = math.atan2(sum_y_vel,sum_x_vel) #orientation of group is orientation of the average velocity of all members
                         p1.velocity.linear.x = math.cos(p1.orientation)*(sum_vel/len(group))
                         p1.velocity.linear.y = math.sin(p1.orientation)*(sum_vel/len(group))
 
+                        #Check distance between robot and group to check if it must moderate velocity adaptation
                         dist_pose = euclidean_distance(tx,ty,p1.position.x,p1.position.y)
                         if dist_pose > DISTANCE_ADAPT:
                             dist_modifier = 1
                         else:
                             dist_modifier = min(1,(dist_pose/DISTANCE_ADAPT)*2)
+
                         p1.sx = min(gvarx*(1 + dist_modifier*GROUP_VEL_ADAPT_FACTOR*(sum_vel/len(group))),gvarx+GROUP_ADAPT_LIMIT)
                         p1.sx_back = gvarx
                         p1.sy = gvary
@@ -407,4 +391,3 @@ class PeoplePublisher():
 if __name__ == '__main__':
     people_publisher = PeoplePublisher()
     people_publisher.publish()
-    #eng.quit()
